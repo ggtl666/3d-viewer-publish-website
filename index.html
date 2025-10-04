@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>太阳活动区 3D 模型展示</title>
+  <style>
+    :root{font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    body{margin:0;background:#0b1020;color:#e6eef8;display:flex;flex-direction:column;height:100vh}
+    header{padding:12px 16px;background:linear-gradient(90deg,#07102a, #0b1633);box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;gap:12px;align-items:center}
+    .brand{font-weight:700;font-size:16px}
+    main{display:flex;flex:1;gap:10px;padding:12px}
+    .viewer-wrap{flex:1;background:#071022;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+    #api-frame{flex:1;border:0}
+    .toolbar{display:flex;gap:8px;padding:8px;background:rgba(255,255,255,.02);align-items:center}
+    .small{padding:6px 8px;font-size:14px;border-radius:8px;border:none;background:#2b6cff;color:white;cursor:pointer}
+    footer{padding:8px 12px;font-size:13px;color:rgba(230,238,248,.7);background:linear-gradient(180deg,transparent,#031022)}
+    .hint{font-size:13px;color:rgba(230,238,248,.7)}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">☀️ 太阳活动区 3D 模型展示 — NASA Sketchfab</div>
+  </header>
+
+  <main>
+    <div class="viewer-wrap">
+      <iframe id="api-frame" title="Solar Active Region 3D Viewer" allowfullscreen mozallowfullscreen webkitallowfullscreen></iframe>
+      <div class="toolbar">
+        <button id="autospinToggle" class="small">自动旋转：关</button>
+        <button id="zoomIn" class="small">放大</button>
+        <button id="zoomOut" class="small">缩小</button>
+        <button id="fit" class="small">重置视角</button>
+        <div style="flex:1"></div>
+        <span class="hint">来源：NASA / Sketchfab 公共模型</span>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div>此 3D 模型展示了太阳活动区的磁场结构，可自由旋转与缩放。<br>模型来源：<a href="https://sketchfab.com/3d-models/a-magnetic-perspective-of-a-solar-active-region-dcac297ccc3149d1918c4effa5ae0104" style="color:#8fb7ff" target="_blank">Sketchfab</a></div>
+  </footer>
+
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script>
+    const iframe = document.getElementById('api-frame');
+    const client = new Sketchfab('1.12.1', iframe);
+    let api = null;
+    let autoSpinOn = false;
+    let currentFov = 45;
+    let spinHandle = null, spinAngle = 0;
+
+    const MODEL_UID = 'dcac297ccc3149d1918c4effa5ae0104'; // 固定 NASA 模型 UID
+
+    // 初始化 viewer
+    client.init(MODEL_UID, {
+      success: function(_api){
+        api = _api;
+        api.start();
+        api.addEventListener('viewerready', function(){
+          api.getFov((err, fov)=>{ if(!err) currentFov = fov; });
+        });
+      },
+      error: function(){
+        alert('无法加载模型，请检查网络连接或 Sketchfab 状态。');
+      },
+      autospin: 0,
+      controls: 1,
+      transparent: 0
+    });
+
+    const autospinToggle = document.getElementById('autospinToggle');
+    const zoomIn = document.getElementById('zoomIn');
+    const zoomOut = document.getElementById('zoomOut');
+    const fitBtn = document.getElementById('fit');
+
+    autospinToggle.onclick = function(){
+      if(!api){ alert('加载中，请稍候。'); return; }
+      autoSpinOn = !autoSpinOn;
+      autospinToggle.textContent = '自动旋转：' + (autoSpinOn ? '开' : '关');
+      if(autoSpinOn) startAutoSpin(); else stopAutoSpin();
+    };
+
+    function startAutoSpin(){
+      spinAngle = 0;
+      spinHandle = setInterval(function(){
+        api.getCameraLookAt(function(err, camera){
+          if(err) return;
+          const t = camera.target || [0,0,0];
+          const p = camera.position || [0,0,3];
+          const dx = p[0]-t[0], dz=p[2]-t[2];
+          const r = Math.sqrt(dx*dx + dz*dz) || 3;
+          spinAngle += 0.02;
+          const newPos = [t[0]+r*Math.cos(spinAngle), p[1], t[2]+r*Math.sin(spinAngle)];
+          api.setCameraLookAt(newPos, t, 0.4);
+        });
+      }, 30);
+    }
+
+    function stopAutoSpin(){ clearInterval(spinHandle); spinHandle=null; }
+
+    zoomIn.onclick = function(){
+      api.getFov((err,fov)=>{
+        if(err) return;
+        const next=Math.max(10,fov-5);
+        api.setFov(next,()=>currentFov=next);
+      });
+    };
+    zoomOut.onclick = function(){
+      api.getFov((err,fov)=>{
+        if(err) return;
+        const next=Math.min(120,fov+5);
+        api.setFov(next,()=>currentFov=next);
+      });
+    };
+    fitBtn.onclick = function(){
+      api.setCamera(0,()=>{
+        api.getFov((err,fov)=>{ if(!err) currentFov=fov; });
+      });
+    };
+  </script>
+</body>
+</html>
+
